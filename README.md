@@ -31,8 +31,8 @@ Each tool includes detailed inline documentation so an AI agent can explain para
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/5G-MAG_mcp.git
-cd 5G-MAG_mcp
+git clone https://github.com/aaronmontilla/M1-mcp.git
+cd M1-mcp
 pip install -r requirements.txt
 ```
 
@@ -62,7 +62,7 @@ Add the following to your `claude_desktop_config.json`:
   "mcpServers": {
     "5gms-m1": {
       "command": "python",
-      "args": ["/path/to/5G-MAG_mcp/server.py"]
+      "args": ["/path/to/M1-mcp/server.py"]
     }
   }
 }
@@ -71,7 +71,7 @@ Add the following to your `claude_desktop_config.json`:
 ### Connecting to Claude Code
 
 ```bash
-claude mcp add 5gms-m1 python /path/to/5G-MAG_mcp/server.py
+claude mcp add 5gms-m1 python /path/to/M1-mcp/server.py
 ```
 
 ## Tools
@@ -162,7 +162,7 @@ Agent: Step 3 — Finally, enabling consumption analytics.
 ## Project Structure
 
 ```
-5G-MAG_mcp/
+M1-mcp/
 ├── server.py                           # MCP server with all 3 tools
 ├── content_hosting_config_template.json # Base template for Tool 2
 ├── requirements.txt                    # Python dependencies
