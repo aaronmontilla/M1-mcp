@@ -4,7 +4,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 
 ## Overview
 
-This server wraps the 5GMS Application Function's M1 REST API into three guided tools that walk users through the standard 3-step provisioning workflow:
+This server wraps the 5GMS Application Function's M1 REST API into a full set of tools covering the complete provisioning lifecycle — create, inspect, and delete sessions and their configurations.
+
+The standard 3-step provisioning workflow is:
 
 ```
 Step 1 → create_provisioning_session
@@ -12,15 +14,18 @@ Step 2 → create_content_hosting_configuration
 Step 3 → create_consumption_reporting_configuration
 ```
 
-Each tool includes detailed inline documentation so an AI agent can explain parameters in plain language and guide users through configuration without needing prior 3GPP knowledge.
+Additional tools allow you to inspect and manage existing resources at any time.
 
 ## Features
 
 - Full 3-step 5GMS provisioning workflow via MCP tools
-- Session state persisted across tool calls (M1 URL and session ID remembered automatically)
+- GET and DELETE tools for all major resources
+- Enumerate all provisioning sessions via the 5G-MAG management API
+- Session state persisted across tool calls (M1 URL, MAF URL, and session ID remembered automatically)
 - Supports both DASH and HLS entry points
 - JSON template support for content hosting configuration
 - Clear, structured error messages with troubleshooting hints
+- Modular codebase — each resource group lives in its own tool module
 - Compatible with any MCP client (Claude Desktop, Claude Code, custom agents)
 
 ## Requirements
@@ -76,9 +81,16 @@ claude mcp add 5gms-m1 python /path/to/M1-mcp/server.py
 
 ## Tools
 
-### 1. `create_provisioning_session`
+### Provisioning Sessions
 
-Creates the top-level provisioning session container. Must be called first.
+| Tool | Method | Description |
+|------|--------|-------------|
+| `create_provisioning_session` | POST | Create a new provisioning session (Step 1) |
+| `get_provisioning_session` | GET | Retrieve details for an existing session |
+| `enumerate_provisioning_sessions` | GET | List all provisioning sessions (uses MAF management API) |
+| `delete_provisioning_session` | DELETE | Delete a provisioning session and all its configurations |
+
+#### `create_provisioning_session`
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
@@ -87,9 +99,23 @@ Creates the top-level provisioning session container. Must be called first.
 | `provisioning_session_type` | No | `DOWNLINK` | `DOWNLINK` or `UPLINK` |
 | `m1_url` | Yes (first call) | — | Base URL of M1 interface, e.g. `http://192.168.1.100:7778` |
 
-### 2. `create_content_hosting_configuration`
+#### `enumerate_provisioning_sessions`
 
-Defines the media ingest origin and distribution entry point.
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `maf_url` | Yes (first call) | — | Base URL of the 5G-MAG management API, e.g. `http://192.168.1.100:7779` |
+
+---
+
+### Content Hosting Configuration
+
+| Tool | Method | Description |
+|------|--------|-------------|
+| `create_content_hosting_configuration` | POST | Define media ingest origin and distribution entry point (Step 2) |
+| `get_content_hosting_configuration` | GET | Retrieve the current content hosting configuration |
+| `delete_content_hosting_configuration` | DELETE | Remove the content hosting configuration |
+
+#### `create_content_hosting_configuration`
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
@@ -102,9 +128,17 @@ Defines the media ingest origin and distribution entry point.
 | `ingest_pull` | No | `true` | Pull vs push ingest |
 | `ingest_protocol` | No | HTTP pull URN | Ingest protocol URN |
 
-### 3. `create_consumption_reporting_configuration`
+---
 
-Enables viewer analytics reporting. All parameters are optional.
+### Consumption Reporting Configuration
+
+| Tool | Method | Description |
+|------|--------|-------------|
+| `create_consumption_reporting_configuration` | POST | Enable viewer analytics reporting (Step 3) |
+
+#### `create_consumption_reporting_configuration`
+
+All parameters are optional.
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
@@ -113,9 +147,18 @@ Enables viewer analytics reporting. All parameters are optional.
 | `location_reporting` | No | `true` | Include geographic location |
 | `access_reporting` | No | `true` | Include network access info |
 
+---
+
+### Metrics Reporting Configuration
+
+| Tool | Method | Description |
+|------|--------|-------------|
+| `get_metrics_reporting_configuration` | GET | Retrieve the current metrics reporting configuration |
+| `delete_metrics_reporting_configuration` | DELETE | Remove the metrics reporting configuration |
+
 ## Content Hosting Configuration Template
 
-The file `content_hosting_config_template.json` is used as a base for Tool 2. You can edit it to add additional fields that will be merged with the values you provide at runtime:
+The file `content_hosting_config_template.json` is used as a base for `create_content_hosting_configuration`. You can edit it to add additional fields that will be merged with the values you provide at runtime:
 
 ```json
 {
@@ -163,10 +206,18 @@ Agent: Step 3 — Finally, enabling consumption analytics.
 
 ```
 M1-mcp/
-├── server.py                           # MCP server with all 3 tools
-├── content_hosting_config_template.json # Base template for Tool 2
-├── requirements.txt                    # Python dependencies
-└── README.md                           # This file
+├── server.py                            # Entry point — imports mcp instance and tool modules
+├── mcp_instance.py                      # Shared FastMCP server instance
+├── state.py                             # Shared session state (M1 URL, MAF URL, session ID)
+├── tools/
+│   ├── __init__.py                      # Imports all tool modules (self-registration)
+│   ├── provisioning.py                  # create / get / enumerate / delete provisioning sessions
+│   ├── content_hosting.py               # create / get / delete content hosting configurations
+│   ├── consumption_reporting.py         # create consumption reporting configurations
+│   └── metrics_reporting.py             # get / delete metrics reporting configurations
+├── content_hosting_config_template.json # Base template for create_content_hosting_configuration
+├── requirements.txt                     # Python dependencies
+└── README.md                            # This file
 ```
 
 ## Standards Reference
