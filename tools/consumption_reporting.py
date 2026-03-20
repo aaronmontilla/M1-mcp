@@ -2,6 +2,7 @@
 Consumption Reporting Configuration tools — 3GPP M1 Interface
 Endpoints:
   POST /3gpp-m1/v2/provisioning-sessions/{id}/consumption-reporting-configuration
+  GET  /3gpp-m1/v2/provisioning-sessions/{id}/consumption-reporting-configuration
 """
 
 import json
@@ -120,6 +121,90 @@ async def create_consumption_reporting_configuration(
             f"ERROR: HTTP {response.status_code} {response.reason_phrase}\n"
             f"  URL: {url}\n  Body: {json.dumps(payload, indent=2)}\n"
             f"  Response: {response.text[:600]}"
+        )
+
+    except httpx.ConnectError:
+        return f"ERROR: Could not connect to '{state.get_m1_url()}'. Is the 5GMS AF running?"
+    except httpx.TimeoutException:
+        return f"ERROR: Request timed out to '{state.get_m1_url()}'."
+    except Exception as exc:
+        return f"ERROR: {type(exc).__name__}: {exc}"
+
+
+# ---------------------------------------------------------------------------
+# Tool — Get Consumption Reporting Configuration
+# ---------------------------------------------------------------------------
+@mcp.tool()
+async def get_consumption_reporting_configuration(
+    provisioning_session_id: str = None,
+    m1_url: str = None,
+) -> str:
+    """
+    Retrieve the Consumption Reporting Configuration for a Provisioning Session.
+
+    PARAMETERS
+    ----------
+    provisioning_session_id (OPTIONAL)
+        The provisioning session whose configuration to retrieve.
+        Defaults to the current session stored in state.
+        Provide this explicitly when querying a session from a previous interaction.
+        Example: "3a2f1b00-1234-5678-abcd-ef0123456789"
+
+    m1_url (OPTIONAL)
+        Base URL of the M1 interface. If omitted, the URL from the current state
+        is used. Provide this explicitly when resuming a previous session.
+        Example: "http://192.168.1.100:7778"
+
+    RETURNS
+    -------
+    Full JSON representation of the Consumption Reporting Configuration, including
+    reporting interval, sample percentage, and location/access reporting flags.
+    """
+    if m1_url:
+        state.set_m1_url(m1_url)
+    if provisioning_session_id:
+        state.set_session_id(provisioning_session_id)
+
+    if not state.get_m1_url():
+        return (
+            "ERROR: No M1 URL configured.\n"
+            "Either run create_provisioning_session first, or pass m1_url explicitly."
+        )
+    session_id = state.get_session_id()
+    if not session_id:
+        return (
+            "ERROR: No Provisioning Session ID found.\n"
+            "Either run create_provisioning_session first, or pass provisioning_session_id explicitly."
+        )
+
+    url = (
+        f"{state.get_m1_url()}/3gpp-m1/v2/provisioning-sessions/"
+        f"{session_id}/consumption-reporting-configuration"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url)
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                pretty = json.dumps(data, indent=2)
+            except Exception:
+                pretty = response.text
+            return (
+                f"SUCCESS: Consumption Reporting Configuration for session '{session_id}'\n\n"
+                f"{pretty}"
+            )
+        elif response.status_code == 404:
+            return (
+                f"NOT FOUND: No Consumption Reporting Configuration exists for "
+                f"session '{session_id}' (HTTP 404).\n"
+                f"Use create_consumption_reporting_configuration to create one."
+            )
+        return (
+            f"ERROR: HTTP {response.status_code} {response.reason_phrase}\n"
+            f"  URL: {url}\n  Response: {response.text[:600]}"
         )
 
     except httpx.ConnectError:

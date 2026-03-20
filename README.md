@@ -135,6 +135,7 @@ claude mcp add 5gms-m1 python /path/to/M1-mcp/server.py
 | Tool | Method | Description |
 |------|--------|-------------|
 | `create_consumption_reporting_configuration` | POST | Enable viewer analytics reporting (Step 3) |
+| `get_consumption_reporting_configuration` | GET | Retrieve the current consumption reporting configuration |
 
 #### `create_consumption_reporting_configuration`
 
@@ -146,6 +147,8 @@ All parameters are optional.
 | `sample_percentage` | No | `100.0` | Percentage of clients that report |
 | `location_reporting` | No | `true` | Include geographic location |
 | `access_reporting` | No | `true` | Include network access info |
+| `provisioning_session_id` | No | state | Override the session ID from state |
+| `m1_url` | No | state | Override the M1 URL from state |
 
 ---
 
@@ -153,8 +156,21 @@ All parameters are optional.
 
 | Tool | Method | Description |
 |------|--------|-------------|
-| `get_metrics_reporting_configuration` | GET | Retrieve the current metrics reporting configuration |
-| `delete_metrics_reporting_configuration` | DELETE | Remove the metrics reporting configuration |
+| `create_metrics_reporting_configuration` | POST | Create a new metrics reporting configuration |
+| `get_metrics_reporting_configuration` | GET | Retrieve an existing metrics reporting configuration |
+| `delete_metrics_reporting_configuration` | DELETE | Remove a metrics reporting configuration |
+
+#### `create_metrics_reporting_configuration`
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `scheme` | No | `urn:3gpp:5gms:metrics-reporting:qoe-metrics` | Metrics reporting scheme URN |
+| `reporting_interval` | No | `10` | Seconds between client reports |
+| `sample_percentage` | No | `100.0` | Percentage of clients that report |
+| `metrics` | No | AF default | List of metric URNs to collect |
+| `url_filters` | No | None | URL patterns to restrict reporting scope |
+| `provisioning_session_id` | No | state | Override the session ID from state |
+| `m1_url` | No | state | Override the M1 URL from state |
 
 ## Content Hosting Configuration Template
 
