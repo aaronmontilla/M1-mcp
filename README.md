@@ -167,8 +167,11 @@ All parameters are optional.
 | `scheme` | No | `urn:3gpp:5gms:metrics-reporting:qoe-metrics` | Metrics reporting scheme URN |
 | `reporting_interval` | No | `10` | Seconds between client reports |
 | `sample_percentage` | No | `100.0` | Percentage of clients that report |
-| `metrics` | No | AF default | List of metric URNs to collect |
+| `sampling_period` | No | None | Seconds between local metric samples |
+| `metrics` | No | AF default | List of metric URNs to collect (e.g. `urn:3GPP:ns:PSS:DASH:QM10#BufferLevel`) |
 | `url_filters` | No | None | URL patterns to restrict reporting scope |
+| `data_network_name` | No | None | DNN/APN to scope the configuration to a specific network |
+| `slice_scope` | No | None | List of S-NSSAI objects (e.g. `[{"sst": 1, "sd": "000001"}]`) |
 | `provisioning_session_id` | No | state | Override the session ID from state |
 | `m1_url` | No | state | Override the M1 URL from state |
 

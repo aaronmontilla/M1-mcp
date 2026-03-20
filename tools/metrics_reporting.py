@@ -35,8 +35,11 @@ async def create_metrics_reporting_configuration(
     scheme: str = "urn:3gpp:5gms:metrics-reporting:qoe-metrics",
     reporting_interval: int = 10,
     sample_percentage: float = 100.0,
+    sampling_period: int = None,
     metrics: list[str] = None,
     url_filters: list[str] = None,
+    data_network_name: str = None,
+    slice_scope: list[dict] = None,
     provisioning_session_id: str = None,
     m1_url: str = None,
 ) -> str:
@@ -67,18 +70,37 @@ async def create_metrics_reporting_configuration(
            50.0 → half of clients report
            10.0 → 10% of clients (large-scale production)
 
+    sampling_period (OPTIONAL, unit: seconds)
+        How frequently the client samples metric values locally before aggregating
+        them into a report. Must be a positive integer if provided.
+        Example: 5 → sample every 5 seconds, report every reporting_interval seconds.
+
     metrics (OPTIONAL)
         List of metric URNs specifying which metrics to collect.
         If omitted, the AF applies its default set.
-        Example: ["urn:3gpp:5gms:metrics:BufferLevel",
-                  "urn:3gpp:5gms:metrics:HttpList",
-                  "urn:3gpp:5gms:metrics:RepSwitchList"]
+        Common URNs (3GPP DASH QoE):
+          "urn:3GPP:ns:PSS:DASH:QM10#HTTPList"
+          "urn:3GPP:ns:PSS:DASH:QM10#BufferLevel"
+          "urn:3GPP:ns:PSS:DASH:QM10#RepSwitchList"
+          "urn:3GPP:ns:PSS:DASH:QM10#MPDInformation"
 
     url_filters (OPTIONAL)
         List of URL pattern strings. When provided, reporting is restricted to
         requests matching at least one of these patterns.
         Example: ["https://cdn.example.com/live/*"]
         If omitted, all requests are covered.
+
+    data_network_name (OPTIONAL)
+        Data Network Name (DNN / APN) to scope this configuration to a specific
+        network slice or access point. Leave empty for no restriction.
+        Example: "internet"
+
+    slice_scope (OPTIONAL)
+        List of S-NSSAI objects identifying the network slices this configuration
+        applies to. Each entry is a dict with at minimum an "sst" (Slice/Service Type)
+        integer and optionally an "sd" (Slice Differentiator) string.
+        Example: [{"sst": 1, "sd": "000001"}]
+        If omitted or empty, the configuration applies to all slices.
 
     provisioning_session_id (OPTIONAL)
         The provisioning session to attach this configuration to.
@@ -115,6 +137,8 @@ async def create_metrics_reporting_configuration(
 
     if reporting_interval <= 0:
         return f"ERROR: reporting_interval must be a positive integer (received {reporting_interval})."
+    if sampling_period is not None and sampling_period <= 0:
+        return f"ERROR: sampling_period must be a positive integer (received {sampling_period})."
     if not (0.0 <= sample_percentage <= 100.0):
         return f"ERROR: sample_percentage must be between 0.0 and 100.0 (received {sample_percentage})."
 
@@ -123,10 +147,16 @@ async def create_metrics_reporting_configuration(
         "reportingInterval": reporting_interval,
         "samplePercentage": sample_percentage,
     }
+    if data_network_name is not None:
+        payload["dataNetworkName"] = data_network_name
+    if sampling_period is not None:
+        payload["samplingPeriod"] = sampling_period
     if metrics:
         payload["metrics"] = metrics
-    if url_filters:
+    if url_filters is not None:
         payload["urlFilters"] = url_filters
+    if slice_scope is not None:
+        payload["sliceScope"] = slice_scope
 
     url = (
         f"{state.get_m1_url()}/3gpp-m1/v2/provisioning-sessions/"
@@ -159,9 +189,12 @@ async def create_metrics_reporting_configuration(
                 f"{id_line}"
                 f"  Scheme              : {scheme}\n"
                 f"  Reporting Interval  : every {reporting_interval} second(s)\n"
-                f"  Sample Percentage   : {sample_percentage}%\n"
+                + (f"  Sampling Period     : every {sampling_period} second(s)\n" if sampling_period else "")
+                + f"  Sample Percentage   : {sample_percentage}%\n"
+                + (f"  Data Network Name   : {data_network_name}\n" if data_network_name else "")
                 + (f"  Metrics             : {', '.join(metrics)}\n" if metrics else "")
                 + (f"  URL Filters         : {', '.join(url_filters)}\n" if url_filters else "")
+                + (f"  Slice Scope         : {slice_scope}\n" if slice_scope else "")
                 + (
                     f"\nNOTE: Save the Configuration ID above — you will need it to retrieve "
                     f"or delete this configuration later using get_metrics_reporting_configuration "
