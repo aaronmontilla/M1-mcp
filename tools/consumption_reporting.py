@@ -20,6 +20,8 @@ async def create_consumption_reporting_configuration(
     sample_percentage: float = 100.0,
     location_reporting: bool = True,
     access_reporting: bool = True,
+    provisioning_session_id: str = None,
+    m1_url: str = None,
 ) -> str:
     """
     STEP 3 OF 3 — Create a Consumption Reporting Configuration.
@@ -45,17 +47,38 @@ async def create_consumption_reporting_configuration(
     access_reporting (default: true)
         Whether to include access network information (WiFi/cellular, signal quality).
 
+    provisioning_session_id (OPTIONAL)
+        The ID of an existing provisioning session to attach this configuration to.
+        If omitted, the session ID from the current state is used (set automatically
+        by create_provisioning_session). Provide this explicitly when resuming work
+        on a session that was created in a previous interaction.
+        Example: "3a2f1b00-1234-5678-abcd-ef0123456789"
+
+    m1_url (OPTIONAL)
+        Base URL of the M1 interface. If omitted, the URL from the current state
+        is used. Provide this explicitly when resuming a previous session.
+        Example: "http://192.168.1.100:7778"
+
     RETURNS
     -------
     Confirmation summary. If all 3 steps are complete, a full workflow summary
     is displayed.
     """
+    # Allow explicit parameters to override state
+    if m1_url:
+        state.set_m1_url(m1_url)
+    if provisioning_session_id:
+        state.set_session_id(provisioning_session_id)
+
     if not state.get_m1_url():
-        return "ERROR: No M1 URL configured. Run create_provisioning_session first."
+        return (
+            "ERROR: No M1 URL configured.\n"
+            "Either run create_provisioning_session first, or pass m1_url explicitly."
+        )
     if not state.get_session_id():
         return (
             "ERROR: No Provisioning Session ID found.\n"
-            "Call create_provisioning_session before creating a Consumption Reporting Configuration."
+            "Either run create_provisioning_session first, or pass provisioning_session_id explicitly."
         )
 
     if reporting_interval <= 0:

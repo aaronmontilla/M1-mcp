@@ -33,11 +33,14 @@ def _connect_error(url: str) -> str:
 def _check_state() -> str | None:
     """Return an error string if m1_url or session_id are missing, else None."""
     if not state.get_m1_url():
-        return "ERROR: No M1 URL configured. Run create_provisioning_session first."
+        return (
+            "ERROR: No M1 URL configured.\n"
+            "Either run create_provisioning_session first, or pass m1_url explicitly."
+        )
     if not state.get_session_id():
         return (
             "ERROR: No Provisioning Session ID found.\n"
-            "Call create_provisioning_session before managing Content Hosting Configurations."
+            "Either run create_provisioning_session first, or pass provisioning_session_id explicitly."
         )
     return None
 
@@ -55,6 +58,8 @@ async def create_content_hosting_configuration(
     dash_profiles: list[str] = None,
     ingest_pull: bool = True,
     ingest_protocol: str = "urn:3gpp:5gms:content-protocol:http-pull-ingest",
+    provisioning_session_id: str = None,
+    m1_url: str = None,
 ) -> str:
     """
     STEP 2 OF 3 — Create a Content Hosting Configuration.
@@ -91,7 +96,25 @@ async def create_content_hosting_configuration(
 
     ingest_protocol (default: "urn:3gpp:5gms:content-protocol:http-pull-ingest")
         Protocol URN for the ingest method.
+
+    provisioning_session_id (OPTIONAL)
+        The ID of an existing provisioning session to attach this configuration to.
+        If omitted, the session ID from the current state is used (set automatically
+        by create_provisioning_session). Provide this explicitly when resuming work
+        on a session that was created in a previous interaction.
+        Example: "3a2f1b00-1234-5678-abcd-ef0123456789"
+
+    m1_url (OPTIONAL)
+        Base URL of the M1 interface. If omitted, the URL from the current state
+        is used. Provide this explicitly when resuming a previous session.
+        Example: "http://192.168.1.100:7778"
     """
+    # Allow explicit parameters to override state
+    if m1_url:
+        state.set_m1_url(m1_url)
+    if provisioning_session_id:
+        state.set_session_id(provisioning_session_id)
+
     err = _check_state()
     if err:
         return err
