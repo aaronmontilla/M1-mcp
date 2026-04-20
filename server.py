@@ -11,10 +11,15 @@ Tool modules
   tools/content_hosting.py       create / get / delete content hosting configurations
   tools/consumption_reporting.py create consumption reporting configurations
   tools/metrics_reporting.py     get / delete metrics reporting configurations
+
+Prompt modules
+--------------
+  prompts.py                     reusable workflow prompts (@mcp.prompt())
 """
 
 from mcp_instance import mcp
-import tools  # noqa: F401 — side-effect: registers all tools with `mcp`
+import tools    # noqa: F401 — side-effect: registers all tools with `mcp`
+import prompts  # noqa: F401 — side-effect: registers all prompts with `mcp`
 
 
 if __name__ == "__main__":

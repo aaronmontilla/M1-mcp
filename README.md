@@ -26,6 +26,7 @@ Additional tools allow you to inspect and manage existing resources at any time.
 - JSON template support for content hosting configuration
 - Clear, structured error messages with troubleshooting hints
 - Modular codebase — each resource group lives in its own tool module
+- **Reusable MCP prompts** covering the full workflow, step-by-step operations, inspection, and teardown
 - Compatible with any MCP client (Claude Desktop, Claude Code, custom agents)
 
 ## Requirements
@@ -38,6 +39,8 @@ Additional tools allow you to inspect and manage existing resources at any time.
 ```bash
 git clone https://github.com/aaronmontilla/M1-mcp.git
 cd M1-mcp
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -53,6 +56,7 @@ pip install -r requirements.txt
 ### Running the server
 
 ```bash
+source .venv/bin/activate
 python server.py
 ```
 
@@ -60,23 +64,25 @@ The server communicates over stdio and is intended to be launched by an MCP host
 
 ### Connecting to Claude Desktop
 
-Add the following to your `claude_desktop_config.json`:
+Add the following to your `claude_desktop_config.json`, using the **venv Python interpreter** so the installed dependencies are available:
 
 ```json
 {
   "mcpServers": {
     "5gms-m1": {
-      "command": "python",
+      "command": "/path/to/M1-mcp/.venv/bin/python",
       "args": ["/path/to/M1-mcp/server.py"]
     }
   }
 }
 ```
 
+On Windows replace `.venv/bin/python` with `.venv\Scripts\python.exe`.
+
 ### Connecting to Claude Code
 
 ```bash
-claude mcp add 5gms-m1 python /path/to/M1-mcp/server.py
+claude mcp add 5gms-m1 /path/to/M1-mcp/.venv/bin/python /path/to/M1-mcp/server.py
 ```
 
 ## Tools
@@ -167,13 +173,40 @@ All parameters are optional.
 | `scheme` | No | `urn:3gpp:5gms:metrics-reporting:qoe-metrics` | Metrics reporting scheme URN |
 | `reporting_interval` | No | `10` | Seconds between client reports |
 | `sample_percentage` | No | `100.0` | Percentage of clients that report |
-| `sampling_period` | No | None | Seconds between local metric samples |
+| `sampling_period` | Yes | — | Seconds between local metric samples |
 | `metrics` | No | AF default | List of metric URNs to collect (e.g. `urn:3GPP:ns:PSS:DASH:QM10#BufferLevel`) |
 | `url_filters` | No | None | URL patterns to restrict reporting scope |
 | `data_network_name` | No | None | DNN/APN to scope the configuration to a specific network |
 | `slice_scope` | No | None | List of S-NSSAI objects (e.g. `[{"sst": 1, "sd": "000001"}]`) |
 | `provisioning_session_id` | No | state | Override the session ID from state |
 | `m1_url` | No | state | Override the M1 URL from state |
+
+## Prompts
+
+The server exposes **8 reusable prompt templates** (`@mcp.prompt()`) that MCP clients can surface as slash commands or quick-start options. Each prompt accepts typed parameters and returns a fully-formed instruction for the AI agent.
+
+| Prompt | Parameters | Description |
+|--------|------------|-------------|
+| `complete_m1_setup` | `m1_url`, `asp_id`, `app_id`, `ingest_base_url`, `entry_point_path`, `stream_name` | Full 3-step setup in a single prompt |
+| `create_provisioning_session` | `m1_url`, `asp_id`, `app_id`, `session_type`* | Step 1 — create a provisioning session |
+| `create_content_hosting` | `ingest_base_url`, `entry_point_path`, `stream_name`, `content_type`* | Step 2 — attach a content hosting configuration |
+| `create_consumption_reporting` | `reporting_interval`*, `sample_percentage`*, `location_reporting`*, `access_reporting`* | Step 3 — attach a consumption reporting configuration |
+| `add_metrics_reporting` | `sampling_period`, `reporting_interval`*, `sample_percentage`* | Optional — add QoE metrics reporting |
+| `inspect_session` | `provisioning_session_id`* | Retrieve and display all resources for a session |
+| `enumerate_sessions` | `maf_url` | List all sessions via the MAF management API |
+| `teardown_session` | `provisioning_session_id`* | Cascade-delete all resources for a session |
+
+\* optional — has a sensible default or falls back to stored state.
+
+### Example (Claude Code)
+
+```
+/complete_m1_setup m1_url=http://10.0.0.5:7778 asp_id=acme app_id=live-1 \
+  ingest_base_url=https://origin.acme.com/ \
+  entry_point_path=live/event1/manifest.mpd stream_name="Acme Live"
+```
+
+---
 
 ## Content Hosting Configuration Template
 
@@ -225,15 +258,16 @@ Agent: Step 3 — Finally, enabling consumption analytics.
 
 ```
 M1-mcp/
-├── server.py                            # Entry point — imports mcp instance and tool modules
+├── server.py                            # Entry point — imports mcp instance, tools, and prompts
 ├── mcp_instance.py                      # Shared FastMCP server instance
 ├── state.py                             # Shared session state (M1 URL, MAF URL, session ID)
+├── prompts.py                           # Reusable workflow prompts (@mcp.prompt())
 ├── tools/
 │   ├── __init__.py                      # Imports all tool modules (self-registration)
 │   ├── provisioning.py                  # create / get / enumerate / delete provisioning sessions
 │   ├── content_hosting.py               # create / get / delete content hosting configurations
 │   ├── consumption_reporting.py         # create consumption reporting configurations
-│   └── metrics_reporting.py             # get / delete metrics reporting configurations
+│   └── metrics_reporting.py             # create / get / delete metrics reporting configurations
 ├── content_hosting_config_template.json # Base template for create_content_hosting_configuration
 ├── requirements.txt                     # Python dependencies
 └── README.md                            # This file
